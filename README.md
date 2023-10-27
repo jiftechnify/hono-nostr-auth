@@ -65,7 +65,7 @@ type NostrAuthAdditinalCheck =
 
 Default: `undefined`
 
-If specified, the middleware executes it as an additional request validation after basic checks (i.e. signature verification, kind / created_at / URL / method validations).
+If specified, the middleware executes it as an additional request validation after basic checks (i.e. event signature verification, kind / created_at / URL / method validations).
 
 Throwing an exception from within the check function rejects the request in question.
 You can customize error responses by throwing an instance of [Hono's `HTTPException`](https://hono.dev/api/exception).
@@ -82,3 +82,9 @@ const app = new Hono();
 app.use("*", nostrAuth({ additionalCheck: verifyPayloadHash }));
 ...
 ```
+
+## Author
+jiftechnify (https://github.com/jiftechnify)
+
+## License
+MIT
