@@ -43,9 +43,24 @@ type NostrAuthOptions = {
   additionalCheck?: NostrAuthAdditionalCheck;
 };
 
+
+/**
+ * Nostr HTTP auth (NIP-98) middleware.
+ * 
+ * @example
+ * ```js
+ * import { Hono } from 'hono';
+ * import { nostrAuth } from 'hono-nostr-auth';
+ * 
+ * const app = new Hono();
+ * 
+ * app.use("/nostr-auth/*", nostrAuth());
+ * ...
+ * ```
+ */
 export const nostrAuth = (
   options: NostrAuthOptions = {}
-): MiddlewareHandler => {
+): MiddlewareHandler<{Variables: { nostrAuthEvent: NostrEvent }}> => {
   const { maxCreatedAtDiffSec, additionalCheck } = {
     maxCreatedAtDiffSec: options.maxCreatedAtDiffSec ?? 30,
     additionalCheck: options.additionalCheck,
@@ -115,6 +130,8 @@ export const nostrAuth = (
         throw errInvalidAuthPayload;
       }
     }
+
+    c.set('nostrAuthEvent', authEv)
 
     await next();
   };

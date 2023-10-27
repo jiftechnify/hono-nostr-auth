@@ -56,12 +56,17 @@ describe("nostrAuth", () => {
     handlerExectuted = false;
   });
 
-  const app = new Hono();
+  type Variables = {
+    nostrAuthEvent: NostrEvent;
+  }
+
+  const app = new Hono<{Variables: Variables }>();
   app.use("/auth", nostrAuth());
 
   app.get("/auth", (c) => {
     handlerExectuted = true;
-    return c.text("ok");
+    const authEv = c.get('nostrAuthEvent')
+    return c.text(`hello, ${authEv.pubkey}!`);
   });
 
   it("should authorize a valid request", async () => {
@@ -76,6 +81,7 @@ describe("nostrAuth", () => {
     assertExists(resp);
     assertEquals(resp.status, 200);
     assert(handlerExectuted);
+    assertEquals(await resp.text(), `hello, ${authEv.pubkey}!`);
   });
 
   it("should not authorize if 'Authorization' header is missing", async () => {
