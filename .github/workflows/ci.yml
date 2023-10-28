@@ -1,0 +1,29 @@
+name: CI
+on:
+  pull_request:
+  push:
+    tags:
+      - "*"
+
+jobs:
+  ci:
+    name: Test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v3
+
+      - name: Setup Node 
+        uses: actions/setup-node@v3
+        with:
+          node-version: "20.x"
+
+      - name: Install dependencies
+        run: yarn
+
+      # build before testing to generate entrypoint file, which is needed in order that test runs successfully
+      - name: Build
+        run: yarn build
+
+      - name: Test
+        run: yarn test
