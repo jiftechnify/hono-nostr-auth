@@ -1,6 +1,7 @@
 # hono-nostr-auth
 [Nostr HTTP auth (NIP-98)](https://github.com/nostr-protocol/nips/blob/master/98.md) middleware for [Hono](https://hono.dev/)🔥.
 
+
 ## Usage
 
 ```
@@ -27,9 +28,10 @@ app.get("/nostr-auth/hello", (c) => {
 ```
 
 ### For Deno Users
+
 ```ts
-import { Hono } from "https://deno.land/x/hono/mod.ts";
-import { nostrAuth, type NostrEvent } from "https://deno.land/x/hono-nostr-auth/mod.ts";
+import { Hono } from "npm:hono@3.9.0";
+import { nostrAuth, type NostrEvent } from "npm:hono-nostr-auth@0.1.0";
 
 type Variables = {
     nostrAuthEvent: NostrEvent;
