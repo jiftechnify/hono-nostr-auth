@@ -1,7 +1,6 @@
-// import { decodeBase64 } from "https://deno.land/std@0.204.0/encoding/base64.ts";
+import { schnorr } from "@noble/curves/secp256k1";
 import type { Context, MiddlewareHandler } from "hono";
 import { HTTPException } from "hono/http-exception";
-import { verifySignature } from "nostr-tools";
 
 export type NostrEvent = {
   id: string;
@@ -65,7 +64,7 @@ export const nostrAuth = (
     additionalCheck: options.additionalCheck,
   };
   if (maxCreatedAtDiffSec < 0) {
-    throw new Error("nostrAuth: maxEventAgeSec must be non-negative");
+    throw new Error("nostrAuth: maxCreatedAtDiffSec must be non-negative");
   }
 
   return async (c, next) => {
@@ -86,7 +85,7 @@ export const nostrAuth = (
       throw errInvalidAuthPayload;
     }
 
-    const authEv = decodeNostrEvent(authPayload);
+    const authEv = await decodeNostrEvent(authPayload);
     if (authEv === undefined) {
       throw errInvalidAuthPayload;
     }
@@ -153,7 +152,7 @@ export const verifyPayloadHash = async (
     throw errInvalidAuthPayload;
   }
   const payloadHash = await crypto.subtle.digest("SHA-256", body);
-  if (arrayBufferToHex(payloadHash) !== payloadTag.toLowerCase()) {
+  if (arrayBufToHex(payloadHash) !== payloadTag.toLowerCase()) {
     throw errInvalidAuthPayload;
   }
 };
@@ -163,6 +162,7 @@ const errInvalidAuthPayload = new HTTPException(401, {
 });
 
 const txtDec = new TextDecoder("utf8");
+const txtEnc = new TextEncoder();
 
 const is32BytesHexStr = (s: string): boolean => {
   return /^[a-f0-9]{64}$/.test(s);
@@ -234,13 +234,15 @@ const isNostrEvent = (v: unknown): v is NostrEvent => {
 };
 
 // decode base64-encoded event and verify signature
-const decodeNostrEvent = (authPayload: string): NostrEvent | undefined => {
+const decodeNostrEvent = async (
+  authPayload: string
+): Promise<NostrEvent | undefined> => {
   try {
     const txt = txtDec.decode(
       Uint8Array.from(atob(authPayload), (c) => c.codePointAt(0)!)
     );
     const ev = JSON.parse(txt) as unknown;
-    if (!isNostrEvent(ev) || !verifySignature(ev)) {
+    if (!isNostrEvent(ev) || !(await verifyEventSignature(ev))) {
       return undefined;
     }
     return ev;
@@ -258,19 +260,30 @@ const getTagValueByName = (
   return ev.tags.find((tag) => tag[0] === name)?.[1];
 };
 
-const hexTable = (() => {
-  const t: string[] = [];
-  for (let n = 0; n < 0xff; n++) {
-    t.push(n.toString(16).padStart(2, "0"));
-  }
-  return t;
-})();
+const hexTable = Array.from({ length: 256 }, (_, i) =>
+  i.toString(16).padStart(2, "0")
+);
 
-const arrayBufferToHex = (buffer: ArrayBuffer): string => {
+const arrayBufToHex = (buffer: ArrayBuffer): string => {
   const bin = new Uint8Array(buffer);
   const res: string[] = [];
   for (let i = 0; i < bin.length; i++) {
     res.push(hexTable[bin[i]!]!);
   }
   return res.join("");
+};
+
+const verifyEventSignature = async (ev: NostrEvent): Promise<boolean> => {
+  const serialized = JSON.stringify([
+    0,
+    ev.pubkey,
+    ev.created_at,
+    ev.kind,
+    ev.tags,
+    ev.content,
+  ]);
+  const evHash = arrayBufToHex(
+    await crypto.subtle.digest("SHA-256", txtEnc.encode(serialized))
+  );
+  return schnorr.verify(ev.sig, evHash, ev.pubkey);
 };

@@ -1,8 +1,7 @@
 import { Hono } from "hono";
 import { HTTPException } from "hono/http-exception";
-import { beforeEach, describe, expect, it, vi } from "vitest";
-// import Mockdate from "mockdate";
 import { EventTemplate, finishEvent, generatePrivateKey } from "nostr-tools";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { NostrEvent, nostrAuth, verifyPayloadHash } from "./nostr_auth";
 
 const privkey = generatePrivateKey();
@@ -71,13 +70,9 @@ describe("nostrAuth", () => {
     req.headers.set("Authorization", `Nostr ${tokenifyEvent(authEv)}`);
     const resp = await app.request(req);
 
-    // expect(resp).toBeDefined();;
     expect(resp).toBeDefined();
-    // assertEquals(resp.status, 200);
     expect(resp.status).toBe(200);
-    // assert(handlerExectuted);
     expect(handlerExecuted).toBe(true);
-    // assertEquals(await resp.text(), `hello, ${authEv.pubkey}!`);
     expect(await resp.text()).toBe(`hello, ${authEv.pubkey}!`);
   });
 

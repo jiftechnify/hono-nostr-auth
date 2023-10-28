@@ -10,6 +10,7 @@ const sharedBuildOptions = {
   entryPoints: ["src/index.ts"],
   outdir: DIST_DIR,
   bundle: true,
+  external: ["@noble/curves/secp256k1", "hono"],
   minify: true,
   sourcemap: "linked",
 };
