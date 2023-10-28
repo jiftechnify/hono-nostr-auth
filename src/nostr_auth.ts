@@ -1,7 +1,7 @@
-import { decodeBase64 } from "https://deno.land/std@0.204.0/encoding/base64.ts";
-import type { Context, MiddlewareHandler } from "npm:hono@3.8.3";
-import { HTTPException } from "npm:hono@3.8.3/http-exception";
-import { verifySignature } from "npm:nostr-tools@1.17.0";
+// import { decodeBase64 } from "https://deno.land/std@0.204.0/encoding/base64.ts";
+import type { Context, MiddlewareHandler } from "hono";
+import { HTTPException } from "hono/http-exception";
+import { verifySignature } from "nostr-tools";
 
 export type NostrEvent = {
   id: string;
@@ -43,24 +43,23 @@ type NostrAuthOptions = {
   additionalCheck?: NostrAuthAdditionalCheck;
 };
 
-
 /**
  * Nostr HTTP auth (NIP-98) middleware.
- * 
+ *
  * @example
  * ```js
  * import { Hono } from 'hono';
  * import { nostrAuth } from 'hono-nostr-auth';
- * 
+ *
  * const app = new Hono();
- * 
+ *
  * app.use("/nostr-auth/*", nostrAuth());
  * ...
  * ```
  */
 export const nostrAuth = (
   options: NostrAuthOptions = {}
-): MiddlewareHandler<{Variables: { nostrAuthEvent: NostrEvent }}> => {
+): MiddlewareHandler<{ Variables: { nostrAuthEvent: NostrEvent } }> => {
   const { maxCreatedAtDiffSec, additionalCheck } = {
     maxCreatedAtDiffSec: options.maxCreatedAtDiffSec ?? 30,
     additionalCheck: options.additionalCheck,
@@ -131,7 +130,7 @@ export const nostrAuth = (
       }
     }
 
-    c.set('nostrAuthEvent', authEv)
+    c.set("nostrAuthEvent", authEv);
 
     await next();
   };
@@ -237,7 +236,9 @@ const isNostrEvent = (v: unknown): v is NostrEvent => {
 // decode base64-encoded event and verify signature
 const decodeNostrEvent = (authPayload: string): NostrEvent | undefined => {
   try {
-    const txt = txtDec.decode(decodeBase64(authPayload));
+    const txt = txtDec.decode(
+      Uint8Array.from(atob(authPayload), (c) => c.codePointAt(0)!)
+    );
     const ev = JSON.parse(txt) as unknown;
     if (!isNostrEvent(ev) || !verifySignature(ev)) {
       return undefined;
@@ -258,7 +259,7 @@ const getTagValueByName = (
 };
 
 const hexTable = (() => {
-  const t = [];
+  const t: string[] = [];
   for (let n = 0; n < 0xff; n++) {
     t.push(n.toString(16).padStart(2, "0"));
   }
@@ -267,9 +268,9 @@ const hexTable = (() => {
 
 const arrayBufferToHex = (buffer: ArrayBuffer): string => {
   const bin = new Uint8Array(buffer);
-  const res = [];
+  const res: string[] = [];
   for (let i = 0; i < bin.length; i++) {
-    res.push(hexTable[bin[i]]);
+    res.push(hexTable[bin[i]!]!);
   }
   return res.join("");
 };

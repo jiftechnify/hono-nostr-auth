@@ -1,24 +1,9 @@
-import { assert } from "https://deno.land/std@0.204.0/assert/assert.ts";
-import {
-  assertEquals,
-  assertExists,
-  assertFalse,
-} from "https://deno.land/std@0.204.0/assert/mod.ts";
-import { encodeBase64 } from "https://deno.land/std@0.204.0/encoding/base64.ts";
-import {
-  beforeEach,
-  describe,
-  it,
-} from "https://deno.land/std@0.204.0/testing/bdd.ts";
-import { FakeTime } from "https://deno.land/std@0.204.0/testing/time.ts";
-import { Hono } from "npm:hono@3.8.3";
-import { HTTPException } from "npm:hono@^3.8.3/http-exception";
-import {
-  EventTemplate,
-  finishEvent,
-  generatePrivateKey,
-} from "npm:nostr-tools@^1.17.0";
-import { NostrEvent, nostrAuth, verifyPayloadHash } from "./nostr_auth.ts";
+import { Hono } from "hono";
+import { HTTPException } from "hono/http-exception";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+// import Mockdate from "mockdate";
+import { EventTemplate, finishEvent, generatePrivateKey } from "nostr-tools";
+import { NostrEvent, nostrAuth, verifyPayloadHash } from "./nostr_auth";
 
 const privkey = generatePrivateKey();
 
@@ -37,6 +22,12 @@ const validAuthEventTemplate = (
   };
 };
 
+const encodeBase64 = (s: string): string => {
+  const bytes = new TextEncoder().encode(s);
+  const binString = String.fromCodePoint(...bytes);
+  return btoa(binString);
+};
+
 const tokenifyEvent = (e: NostrEvent): string =>
   encodeBase64(JSON.stringify(e));
 
@@ -49,23 +40,25 @@ const setTag = (e: { tags: string[][] }, tagName: string, newValue: string) => {
 };
 
 describe("nostrAuth", () => {
-  let _time = new FakeTime(100 * 1e3);
-  let handlerExectuted = false;
+  let handlerExecuted = false;
+
+  vi.useFakeTimers();
+  vi.setSystemTime(100 * 1e3);
+
   beforeEach(() => {
-    _time = new FakeTime(100 * 1e3);
-    handlerExectuted = false;
+    handlerExecuted = false;
   });
 
   type Variables = {
     nostrAuthEvent: NostrEvent;
-  }
+  };
 
-  const app = new Hono<{Variables: Variables }>();
+  const app = new Hono<{ Variables: Variables }>();
   app.use("/auth", nostrAuth());
 
   app.get("/auth", (c) => {
-    handlerExectuted = true;
-    const authEv = c.get('nostrAuthEvent')
+    handlerExecuted = true;
+    const authEv = c.get("nostrAuthEvent");
     return c.text(`hello, ${authEv.pubkey}!`);
   });
 
@@ -78,20 +71,24 @@ describe("nostrAuth", () => {
     req.headers.set("Authorization", `Nostr ${tokenifyEvent(authEv)}`);
     const resp = await app.request(req);
 
-    assertExists(resp);
-    assertEquals(resp.status, 200);
-    assert(handlerExectuted);
-    assertEquals(await resp.text(), `hello, ${authEv.pubkey}!`);
+    // expect(resp).toBeDefined();;
+    expect(resp).toBeDefined();
+    // assertEquals(resp.status, 200);
+    expect(resp.status).toBe(200);
+    // assert(handlerExectuted);
+    expect(handlerExecuted).toBe(true);
+    // assertEquals(await resp.text(), `hello, ${authEv.pubkey}!`);
+    expect(await resp.text()).toBe(`hello, ${authEv.pubkey}!`);
   });
 
   it("should not authorize if 'Authorization' header is missing", async () => {
     const req = new Request("http://localhost/auth");
     const resp = await app.request(req);
 
-    assertExists(resp);
-    assertEquals(resp.status, 401);
-    assertFalse(handlerExectuted);
-    assertEquals(await resp.text(), "'Authorization' header is missing");
+    expect(resp).toBeDefined();
+    expect(resp.status).toBe(401);
+    expect(handlerExecuted).toBe(false);
+    expect(await resp.text()).toBe("'Authorization' header is missing");
   });
 
   it("should not authorize if auth scheme is not 'Nostr'", async () => {
@@ -99,10 +96,10 @@ describe("nostrAuth", () => {
     req.headers.set("Authorization", "Bearer 123");
     const resp = await app.request(req);
 
-    assertExists(resp);
-    assertEquals(resp.status, 401);
-    assertFalse(handlerExectuted);
-    assertEquals(await resp.text(), "'Nostr' auth scheme is expected");
+    expect(resp).toBeDefined();
+    expect(resp.status).toBe(401);
+    expect(handlerExecuted).toBe(false);
+    expect(await resp.text()).toBe("'Nostr' auth scheme is expected");
   });
 
   it("should not authorize if auth payload is missing", async () => {
@@ -110,9 +107,9 @@ describe("nostrAuth", () => {
     req.headers.set("Authorization", "Nostr");
     const resp = await app.request(req);
 
-    assertExists(resp);
-    assertEquals(resp.status, 401);
-    assertFalse(handlerExectuted);
+    expect(resp).toBeDefined();
+    expect(resp.status).toBe(401);
+    expect(handlerExecuted).toBe(false);
   });
 
   it("should not authoriza if auth payload is not base64 encoded", async () => {
@@ -124,9 +121,9 @@ describe("nostrAuth", () => {
     req.headers.set("Authorization", `Nostr ${JSON.stringify(authEv)}`); // omit base64 encoding
     const resp = await app.request(req);
 
-    assertExists(resp);
-    assertEquals(resp.status, 401);
-    assertFalse(handlerExectuted);
+    expect(resp).toBeDefined();
+    expect(resp.status).toBe(401);
+    expect(handlerExecuted).toBe(false);
   });
 
   it("should not authorize if auth payload is not a valid nostr Event", async () => {
@@ -138,9 +135,9 @@ describe("nostrAuth", () => {
     );
     const resp = await app.request(req);
 
-    assertExists(resp);
-    assertEquals(resp.status, 401);
-    assertFalse(handlerExectuted);
+    expect(resp).toBeDefined();
+    expect(resp.status).toBe(401);
+    expect(handlerExecuted).toBe(false);
   });
 
   it("should not authorize if signature of auth event is invalid", async () => {
@@ -155,9 +152,9 @@ describe("nostrAuth", () => {
     ); // compromise the signature
     const resp = await app.request(req);
 
-    assertExists(resp);
-    assertEquals(resp.status, 401);
-    assertFalse(handlerExectuted);
+    expect(resp).toBeDefined();
+    expect(resp.status).toBe(401);
+    expect(handlerExecuted).toBe(false);
   });
 
   it("should not authorize if kind of auth event is invalid", async () => {
@@ -172,14 +169,14 @@ describe("nostrAuth", () => {
     );
     const resp = await app.request(req);
 
-    assertExists(resp);
-    assertEquals(resp.status, 401);
-    assertFalse(handlerExectuted);
+    expect(resp).toBeDefined();
+    expect(resp.status).toBe(401);
+    expect(handlerExecuted).toBe(false);
   });
 
   describe("timestamp diff treatment (default)", () => {
     beforeEach(() => {
-      handlerExectuted = false;
+      handlerExecuted = false;
     });
 
     it("should allow timestamp diff within threshold (past)", async () => {
@@ -194,9 +191,9 @@ describe("nostrAuth", () => {
       );
       const resp = await app.request(req);
 
-      assertExists(resp);
-      assertEquals(resp.status, 200);
-      assert(handlerExectuted);
+      expect(resp).toBeDefined();
+      expect(resp.status).toBe(200);
+      expect(handlerExecuted).toBe(true);
     });
 
     it("should allow timestamp diff within threshold (future)", async () => {
@@ -211,9 +208,9 @@ describe("nostrAuth", () => {
       );
       const resp = await app.request(req);
 
-      assertExists(resp);
-      assertEquals(resp.status, 200);
-      assert(handlerExectuted);
+      expect(resp).toBeDefined();
+      expect(resp.status).toBe(200);
+      expect(handlerExecuted).toBe(true);
     });
 
     it("should deny timestamp diff out of threshold (past)", async () => {
@@ -228,9 +225,9 @@ describe("nostrAuth", () => {
       );
       const resp = await app.request(req);
 
-      assertExists(resp);
-      assertEquals(resp.status, 401);
-      assertFalse(handlerExectuted);
+      expect(resp).toBeDefined();
+      expect(resp.status).toBe(401);
+      expect(handlerExecuted).toBe(false);
     });
 
     it("should deny timestamp diff out of threshold (future)", async () => {
@@ -245,23 +242,23 @@ describe("nostrAuth", () => {
       );
       const resp = await app.request(req);
 
-      assertExists(resp);
-      assertEquals(resp.status, 401);
-      assertFalse(handlerExectuted);
+      expect(resp).toBeDefined();
+      expect(resp.status).toBe(401);
+      expect(handlerExecuted).toBe(false);
     });
   });
 
   describe("timestamp diff treatment (with custom threshold)", () => {
-    let handlerExectuted = false;
+    let handlerExecuted = false;
     beforeEach(() => {
-      handlerExectuted = false;
+      handlerExecuted = false;
     });
 
     const app = new Hono();
     app.use("/auth", nostrAuth({ maxCreatedAtDiffSec: 10 }));
 
     app.get("/auth", (c) => {
-      handlerExectuted = true;
+      handlerExecuted = true;
       return c.text("ok");
     });
 
@@ -277,9 +274,9 @@ describe("nostrAuth", () => {
       );
       const resp = await app.request(req);
 
-      assertExists(resp);
-      assertEquals(resp.status, 200);
-      assert(handlerExectuted);
+      expect(resp).toBeDefined();
+      expect(resp.status).toBe(200);
+      expect(handlerExecuted).toBe(true);
     });
 
     it("should allow timestamp diff within threshold (future)", async () => {
@@ -294,9 +291,9 @@ describe("nostrAuth", () => {
       );
       const resp = await app.request(req);
 
-      assertExists(resp);
-      assertEquals(resp.status, 200);
-      assert(handlerExectuted);
+      expect(resp).toBeDefined();
+      expect(resp.status).toBe(200);
+      expect(handlerExecuted).toBe(true);
     });
 
     it("should deny timestamp diff out of threshold (past)", async () => {
@@ -311,9 +308,9 @@ describe("nostrAuth", () => {
       );
       const resp = await app.request(req);
 
-      assertExists(resp);
-      assertEquals(resp.status, 401);
-      assertFalse(handlerExectuted);
+      expect(resp).toBeDefined();
+      expect(resp.status).toBe(401);
+      expect(handlerExecuted).toBe(false);
     });
 
     it("should deny timestamp diff out of threshold (future)", async () => {
@@ -328,9 +325,9 @@ describe("nostrAuth", () => {
       );
       const resp = await app.request(req);
 
-      assertExists(resp);
-      assertEquals(resp.status, 401);
-      assertFalse(handlerExectuted);
+      expect(resp).toBeDefined();
+      expect(resp.status).toBe(401);
+      expect(handlerExecuted).toBe(false);
     });
   });
 
@@ -344,9 +341,9 @@ describe("nostrAuth", () => {
     );
     const resp = await app.request(req);
 
-    assertExists(resp);
-    assertEquals(resp.status, 401);
-    assertFalse(handlerExectuted);
+    expect(resp).toBeDefined();
+    expect(resp.status).toBe(401);
+    expect(handlerExecuted).toBe(false);
   });
 
   it("should not authorize if request method doesn't match", async () => {
@@ -359,15 +356,15 @@ describe("nostrAuth", () => {
     );
     const resp = await app.request(req);
 
-    assertExists(resp);
-    assertEquals(resp.status, 401);
-    assertFalse(handlerExectuted);
+    expect(resp).toBeDefined();
+    expect(resp.status).toBe(401);
+    expect(handlerExecuted).toBe(false);
   });
 
   describe("with additional check", () => {
-    let handlerExectuted = false;
+    let handlerExecuted = false;
     beforeEach(() => {
-      handlerExectuted = false;
+      handlerExecuted = false;
     });
 
     const app = new Hono();
@@ -394,7 +391,7 @@ describe("nostrAuth", () => {
     );
 
     app.post("/auth/*", (c) => {
-      handlerExectuted = true;
+      handlerExecuted = true;
       return c.text("ok");
     });
 
@@ -414,9 +411,9 @@ describe("nostrAuth", () => {
 
       const resp = await app.request(req);
 
-      assertExists(resp);
-      assertEquals(resp.status, 200);
-      assert(handlerExectuted);
+      expect(resp).toBeDefined();
+      expect(resp.status).toBe(200);
+      expect(handlerExecuted).toBe(true);
     });
 
     it("should not authorize if additional check fails (body)", async () => {
@@ -435,10 +432,10 @@ describe("nostrAuth", () => {
 
       const resp = await app.request(req);
 
-      assertExists(resp);
-      assertEquals(resp.status, 401);
-      assertFalse(handlerExectuted);
-      assertEquals(await resp.text(), "body mismatch");
+      expect(resp).toBeDefined();
+      expect(resp.status).toBe(401);
+      expect(handlerExecuted).toBe(false);
+      expect(await resp.text()).toBe("body mismatch");
     });
 
     it("should authorize if additional check passes (payload-hash)", async () => {
@@ -461,9 +458,9 @@ describe("nostrAuth", () => {
 
       const resp = await app.request(req);
 
-      assertExists(resp);
-      assertEquals(resp.status, 200);
-      assert(handlerExectuted);
+      expect(resp).toBeDefined();
+      expect(resp.status).toBe(200);
+      expect(handlerExecuted).toBe(true);
     });
 
     it("should not authorize if additional check fails (payload-hash)", async () => {
@@ -486,9 +483,9 @@ describe("nostrAuth", () => {
 
       const resp = await app.request(req);
 
-      assertExists(resp);
-      assertEquals(resp.status, 401);
-      assertFalse(handlerExectuted);
+      expect(resp).toBeDefined();
+      expect(resp.status).toBe(401);
+      expect(handlerExecuted).toBe(false);
     });
 
     it("should not authorize if additional check fails (payload-hash, tag missing)", async () => {
@@ -499,7 +496,7 @@ describe("nostrAuth", () => {
       const authEv = {
         ...validAuthEventTemplate("http://localhost/auth/payload-hash", "POST"),
       };
-      // don't set payload tag 
+      // don't set payload tag
       req.headers.set(
         "Authorization",
         `Nostr ${tokenifyEvent(finishEvent(authEv, privkey))}`
@@ -507,9 +504,9 @@ describe("nostrAuth", () => {
 
       const resp = await app.request(req);
 
-      assertExists(resp);
-      assertEquals(resp.status, 401);
-      assertFalse(handlerExectuted);
+      expect(resp).toBeDefined();
+      expect(resp.status).toBe(401);
+      expect(handlerExecuted).toBe(false);
     });
   });
 });
