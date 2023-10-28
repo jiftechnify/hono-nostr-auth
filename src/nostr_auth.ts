@@ -82,35 +82,35 @@ export const nostrAuth = (
       });
     }
     if (!authPayload) {
-      throw errInvalidAuthPayload;
+      throw errPlainUnauthorized;
     }
 
     const authEv = await decodeNostrEvent(authPayload);
     if (authEv === undefined) {
-      throw errInvalidAuthPayload;
+      throw errPlainUnauthorized;
     }
 
     // 1. The kind MUST be 27235.
     if (authEv.kind !== 27235) {
-      throw errInvalidAuthPayload;
+      throw errPlainUnauthorized;
     }
 
     // 2. The created_at timestamp MUST be within a reasonable time window.
     const currTime = currUnixtimeSec();
     if (Math.abs(currTime - authEv.created_at) > maxCreatedAtDiffSec) {
-      throw errInvalidAuthPayload;
+      throw errPlainUnauthorized;
     }
 
     // 3. The u tag MUST be exactly the same as the absolute request URL (including query parameters).
     const uTag = getTagValueByName(authEv, "u");
     if (uTag !== c.req.url) {
-      throw errInvalidAuthPayload;
+      throw errPlainUnauthorized;
     }
 
     // 4. The method tag MUST be the same HTTP method used for the requested resource.
     const methodTag = getTagValueByName(authEv, "method");
     if (methodTag !== c.req.method) {
-      throw errInvalidAuthPayload;
+      throw errPlainUnauthorized;
     }
 
     // Servers MAY perform additional implementation-specific validation checks.
@@ -125,7 +125,7 @@ export const nostrAuth = (
         if (err instanceof Error) {
           console.error(err);
         }
-        throw errInvalidAuthPayload;
+        throw errPlainUnauthorized;
       }
     }
 
@@ -149,17 +149,15 @@ export const verifyPayloadHash = async (
 
   const payloadTag = getTagValueByName(authEvent, "payload");
   if (!payloadTag) {
-    throw errInvalidAuthPayload;
+    throw errPlainUnauthorized;
   }
   const payloadHash = await crypto.subtle.digest("SHA-256", body);
   if (arrayBufToHex(payloadHash) !== payloadTag.toLowerCase()) {
-    throw errInvalidAuthPayload;
+    throw errPlainUnauthorized;
   }
 };
 
-const errInvalidAuthPayload = new HTTPException(401, {
-  message: "invalid auth payload",
-});
+const errPlainUnauthorized = new HTTPException(401);
 
 const txtDec = new TextDecoder("utf8");
 const txtEnc = new TextEncoder();
