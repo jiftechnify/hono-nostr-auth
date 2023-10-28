@@ -251,7 +251,7 @@ const decodeNostrEvent = async (
   }
 };
 
-const currUnixtimeSec = () => Date.now() / 1000;
+const currUnixtimeSec = () => Math.floor(Date.now() / 1000);
 
 const getTagValueByName = (
   ev: NostrEvent,
