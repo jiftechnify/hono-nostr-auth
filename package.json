@@ -1,6 +1,6 @@
 {
   "name": "hono-nostr-auth",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Nostr HTTP auth (NIP-98) middleware for Hono",
   "repository": {
     "type": "git",

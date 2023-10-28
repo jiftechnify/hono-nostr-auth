@@ -31,7 +31,7 @@ app.get("/nostr-auth/hello", (c) => {
 
 ```ts
 import { Hono } from "npm:hono@3.9.0";
-import { nostrAuth, type NostrEvent } from "npm:hono-nostr-auth@0.1.0";
+import { nostrAuth, type NostrEvent } from "npm:hono-nostr-auth@0.1.1";
 
 type Variables = {
     nostrAuthEvent: NostrEvent;
