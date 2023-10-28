@@ -23,6 +23,10 @@
       "types": "./dist/index.d.ts"
     }
   },
+  "files": [
+    "dist",
+    "src"
+  ],
   "scripts": {
     "prepack": "yarn build",
     "tsc": "tsc",
