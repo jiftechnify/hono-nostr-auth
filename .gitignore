@@ -1,5 +1,4 @@
 node_modules
 npm
-dist/*
-!dist/index.cjs
+dist/
 .vscode
